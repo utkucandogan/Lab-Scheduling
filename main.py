@@ -1,44 +1,71 @@
-import csv
+from schedule import Schedule, WeeklyConstants
+import pulp
+import logging
 import numpy as np
 
-DAYS_IN_A_WEEK = 5
-LECTURE_HOURS_IN_A_DAY = 9
-IMPOSSIBLES_ID = "1111111"
-
-csv_path = "student_schedule.csv"
+# Constants
+student_path = "test-data/student_schedule.csv"
+assistant_path = "test-data/assistant_schedule.csv"
 lab_hour = 2
+max_deviation = 3
+deviation_constant = 1
+lab_capacity = 16
+assistant_count_per_session = 2
 
-def hours_to_slots(schedule: np.ndarray):
-    lab_filter = np.ones(lab_hour, dtype=int)
-    slots = np.apply_along_axis(lambda day: np.convolve(day, lab_filter, "valid"), axis=1, arr=schedule)
-    return slots == 2
+# Create the schedules
+student_hours = Schedule.read_schedules(student_path)
+assistant_hours = Schedule.read_schedules(assistant_path)
 
-students = {}
-with open(csv_path, "r", encoding="utf-8") as csv_file:
-    csv_reader = csv.reader(csv_file, delimiter=";")
-    headers = next(csv_reader, None)
-    if headers is None:
-        raise RuntimeError(f"File named \"{csv_path}\" is empty!")
+student_slots = Schedule.generate_slots(student_hours, lab_hour)
+assistant_slots = Schedule.generate_slots(assistant_hours, lab_hour)
 
-    # Process header to find id column index
-    print(f"Column names are {', '.join(headers)}")
-    id_column = headers.index("ID number")
+logging.debug(student_slots)
 
-    # Extract data as a numpy array
-    for row in csv_reader:
-        student_schedule_raw = np.array(row[id_column+1:]).reshape(DAYS_IN_A_WEEK, LECTURE_HOURS_IN_A_DAY)
-        student_schedule_strict = student_schedule_raw == "1"
-        student_schedule_relaxed = student_schedule_raw != "0"
-        students[row[id_column]] = (student_schedule_strict, student_schedule_relaxed)
+# Get the number of sessions
+sessions = range(WeeklyConstants.get_slot_count(lab_hour))
 
-    print(f"Processing \"{csv_path}\" is done.")
+session_decision = pulp.LpVariable.dicts("Session", sessions, lowBound=0, upBound=1, cat=pulp.LpInteger)
+student_session_decision = pulp.LpVariable.dicts("Student Session", (sessions, student_slots.keys()), lowBound=0, upBound=1, cat=pulp.LpInteger)
+assistant_session_decision = pulp.LpVariable.dicts("Assistant Session", (sessions, assistant_slots.keys()), lowBound=0, upBound=1, cat=pulp.LpInteger)
+assistant_deviation = pulp.LpVariable("Assistant Deviation", lowBound=0, upBound=max_deviation, cat=pulp.LpInteger)
 
-# Prepare impossible slots
-impossible_slots = students.pop(IMPOSSIBLES_ID)
-impossible_slots = tuple(hours_to_slots(s) for s in impossible_slots)
+# Create the problem
+prob = pulp.LpProblem("Lab Scheduling", pulp.LpMinimize)
+# Create the objective of minimizing lab session count
+prob += pulp.lpSum([session_decision[session] for session in sessions]) + assistant_deviation * deviation_constant
+# Create the constraint of a student only attending 1 lab session
+for student in student_slots.keys():
+    prob += pulp.lpSum([student_session_decision[session][student] for session in sessions]) == 1
 
-# Calculate slots for students
-for id, schedule in students.items():
-    students[id] = tuple(hours_to_slots(s) & i for s, i in zip(students[id], impossible_slots))
+# Constraint for attending students not exceeding lab capacity
+for session in sessions:
+    prob += pulp.lpSum([student_session_decision[session][student] for student in student_slots.keys()]) <= lab_capacity * session_decision[session]
+# Make a constraint for the overlapping sessions so they are impossible
+for overlapping_pair in WeeklyConstants.get_overlapping_pairs(lab_hour):
+    prob += (session_decision[overlapping_pair[0]] + session_decision[overlapping_pair[1]]) <= 1
+# Make student busy sessions impossible for them to attend
+for student in student_slots.keys():
+    busy_indices = np.nonzero(~student_slots[student].relaxed.flatten())
+    for session in busy_indices[0]:
+        prob += student_session_decision[session][student] == 0
+# Make assistant busy sessions impossible for them to attend
+for assistant in assistant_slots.keys():
+    busy_indices = np.nonzero(~assistant_slots[assistant].relaxed.flatten())
+    for session in busy_indices[0]:
+        prob += assistant_session_decision[session][assistant] == 0
+# Constraint for number of assistants per session
+for session in sessions:
+    prob += pulp.lpSum([assistant_session_decision[session][assistant] for assistant in assistant_slots.keys()]) == assistant_count_per_session * session_decision[session]
 
-print(students)
+for assitant_1 in assistant_slots.keys():
+    for assitant_2 in assistant_slots.keys():
+             prob += pulp.lpSum(
+                  [(assistant_session_decision[session][assitant_1] - assistant_session_decision[session][assitant_2]) for session in sessions]
+                  ) <= assistant_deviation
+
+print("Starting the solution")
+status = prob.solve()
+print(pulp.LpStatus[status])
+for i, s in session_decision.items():
+    if pulp.value(s):
+        print(i)
