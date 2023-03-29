@@ -35,6 +35,7 @@ class Slotter:
                                                                 lowBound=0, upBound=1, cat=pulp.LpInteger)
         self.assistant_work_deviation = pulp.LpVariable("Assistant-Deviation", lowBound=0, upBound=self.max_assistant_work_deviation, cat=pulp.LpInteger)
 
+        self.student_part_time_decision = pulp.LpVariable.dicts("Student-Part-Time",self.student_list, lowBound=0, upBound=1, cat=pulp.LpInteger)
         # Create the problem
         self.problem = pulp.LpProblem("Lab-Scheduling", pulp.LpMinimize)
 
@@ -43,7 +44,7 @@ class Slotter:
         self.problem.setSolver(solver)
 
         # Create the objective of minimizing lab session count and assistant workload
-        self.problem  += pulp.lpSum([self.session_decision[session] for session in self.sessions]) + self.assistant_work_deviation * self.assistant_work_deviation_constant
+        self.problem  += pulp.lpSum([self.session_decision[session] for session in self.sessions]) + self.assistant_work_deviation * self.assistant_work_deviation_constant + pulp.lpSum([self.student_part_time_decision[student] for student in self.student_list])
 
     def assign_constraints(self):
         # Create the constraint of a student only attending 1 lab session
@@ -62,15 +63,26 @@ class Slotter:
 
         # Make student busy sessions impossible for them to attend
         for student in self.student_list:
-            busy_indices = np.nonzero(~self.student_available_slots[student].strict.flatten())
+            busy_indices = np.nonzero(~self.student_available_slots[student].academic.flatten())
             for session in busy_indices[0]:
                 self.problem += self.student_session_decision[session][student] == 0
+        
+        #Make the part time variable 1 for the students with labs in such sessions
+        for student in self.student_list:
+            part_time_indices = np.nonzero(~self.student_available_slots[student].part_time.flatten())
+            self.problem +=pulp.lpSum(self.student_session_decision[session][student]for session in part_time_indices[0]) == self.student_part_time_decision[student]
 
         # Make assistant busy sessions impossible for them to attend
         for assistant in self.assistant_list:
-            busy_indices = np.nonzero(~self.assistant_available_slots[assistant].strict.flatten())
+            busy_indices = np.nonzero(~self.assistant_available_slots[assistant].academic.flatten())
             for session in busy_indices[0]:
                 self.problem += self.assistant_session_decision[session][assistant] == 0
+
+        # Make assistant part_time sessions impossible for them to attend
+        for assistant in self.assistant_list:
+            busy_indices = np.nonzero(~self.assistant_available_slots[assistant].part_time.flatten())
+            for session in busy_indices[0]:
+                self.problem += self.assistant_session_decision[session][assistant] == 0        
 
         # Constraint for number of assistants per session
         for session in self.sessions:
@@ -96,6 +108,10 @@ class Slotter:
             return None
 
         logging.info("Found the solution")
+        for student in self.student_list:
+            if(pulp.value(self.student_part_time_decision[student])):
+                print(student)
+
         sessions = {}
         for session in self.sessions:
             # Skip unselected sessions

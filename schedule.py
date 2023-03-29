@@ -24,23 +24,23 @@ class Schedule:
             strict: Holds the availibilty by considering extra hours as busy
             relaxed: Holds the availibilty by considering extra hours as free
     """
-    def __init__(self, strict: np.ndarray, relaxed: np.ndarray, extra_time: int):
-        self.strict = strict
-        self.relaxed = relaxed
+    def __init__(self, academic: np.ndarray, part_time: np.ndarray, extra_time: int):
+        self.academic = academic
+        self.part_time = part_time
         self.extra_time = extra_time
 
     def __repr__(self):
-        return f"<Schedule strict:\n{self.strict}\n>"
+        return f"<Schedule academic:\n{self.academic}\n>"
     
     def __str__(self):
-        return f"(strict: {self.strict} relaxed: {self.relaxed} extra_time: {self.extra_time})"
+        return f"(strict: {self.academic} relaxed: {self.part_time} extra_time: {self.extra_time})"
 
     # Convolves the hours with the lab length signal and returns a new Schedule
     def to_slots(self, slot_length: int, impossibles: "Schedule"):
-        strict = _to_slots_convolution_helper(self.strict & impossibles.strict, slot_length)
-        relaxed = _to_slots_convolution_helper(self.relaxed & impossibles.relaxed, slot_length)
+        academic = _to_slots_convolution_helper(self.academic & impossibles.academic, slot_length)
+        part_time = _to_slots_convolution_helper(self.part_time & impossibles.part_time, slot_length)
 
-        return Schedule(strict, relaxed, self.extra_time)
+        return Schedule(academic, part_time, self.extra_time)
 
 # Type hint definition
 Schedules = Dict[str, Schedule]
@@ -74,11 +74,11 @@ class ScheduleFactory:
                 row_processed = [h if h else Availability.FREE for h in row[id_column+1:]] # Replaces empty cells with FREE
                 hours_raw = np.array(row_processed).reshape(self.week.days_in_week, self.week.hours_in_day)
 
-                hours_strict = hours_raw == Availability.FREE # Checks which slots are free and creates bool array
-                hours_relaxed = hours_raw != Availability.BUSY # Checks which slots aren't busy and creates bool array (handles extra time as free)
+                hours_part_time = hours_raw != Availability.EXTRA # Checks which slots are free and creates bool array
+                hours_academic = hours_raw != Availability.BUSY # Checks which slots aren't busy and creates bool array (handles extra time as free)
                 extra_time = np.count_nonzero(hours_raw == Availability.EXTRA)
 
-                schedules[row[id_column]] = Schedule(hours_strict, hours_relaxed, extra_time)
+                schedules[row[id_column]] = Schedule(hours_academic, hours_part_time, extra_time)
 
             logging.info(f"Processing \"{filepath}\" is done.")
 
