@@ -9,11 +9,11 @@ import logging
 class Slotter:
     def __init__(self, week: Week, name: str, lab_capacity: int,
                  assistant_count_per_session: int, max_assistant_work_deviation: int, assistant_work_deviation_constant: int,
-                 student_available_slots: Schedules, assistant_available_slots: Schedules):
+                 student_available_slots: Schedules, assistant_available_slots: Schedules,session_no: int):
         self.week = week
         self.name = name
         self.lab_capacity = lab_capacity
-
+        self.session_no = session_no
         self.assistant_count_per_session = assistant_count_per_session
         self.max_assistant_work_deviation = max_assistant_work_deviation
         self.assistant_work_deviation_constant = assistant_work_deviation_constant
@@ -40,13 +40,17 @@ class Slotter:
         self.problem = pulp.LpProblem("Lab-Scheduling", pulp.LpMinimize)
 
         # Set the solver for the problem
-        solver = pulp.PULP_CBC_CMD(msg = False) # Default solver with logging closed
+        solver = pulp.PULP_CBC_CMD(msg = True) # Default solver with logging closed
         self.problem.setSolver(solver)
 
         # Create the objective of minimizing lab session count and assistant workload
-        self.problem  += pulp.lpSum([self.session_decision[session] for session in self.sessions]) + self.assistant_work_deviation * self.assistant_work_deviation_constant + pulp.lpSum([self.student_part_time_decision[student] for student in self.student_list])
+        self.problem  += (self.assistant_work_deviation * self.assistant_work_deviation_constant 
+                          + pulp.lpSum([self.student_part_time_decision[student] for student in self.student_list]))
 
     def assign_constraints(self):
+
+        # Create the constraint for lab session number
+        self.problem  += pulp.lpSum([self.session_decision[session] for session in self.sessions]) ==self.session_no
         # Create the constraint of a student only attending 1 lab session
         for student in self.student_list:
             self.problem += pulp.lpSum([self.student_session_decision[session][student] for session in self.sessions]) == 1
