@@ -36,4 +36,6 @@ slotter = Slotter(week, "Lab-Schedule", lab_capacity, assistant_count_per_sessio
                   max_assistant_work_deviation, assistant_work_deviation_constant, student_slots, assistant_slots)
 
 slotter.assign_constraints()
-slotter.find_slots()
+result = slotter.find_slots()
+for session, list in result.items():
+    print(session, list)
