@@ -24,23 +24,23 @@ class Schedule:
             strict: Holds the availibilty by considering extra hours as busy
             relaxed: Holds the availibilty by considering extra hours as free
     """
-    def __init__(self, academic: np.ndarray, part_time: np.ndarray, extra_time: int):
+    def __init__(self, academic: np.ndarray, part_time: np.ndarray, altruism_parameter: int):
         self.academic = academic
         self.part_time = part_time
-        self.extra_time = extra_time
+        self.altruism_parameter = altruism_parameter
 
     def __repr__(self):
         return f"<Schedule academic:\n{self.academic}\n>"
     
     def __str__(self):
-        return f"(strict: {self.academic} relaxed: {self.part_time} extra_time: {self.extra_time})"
+        return f"(strict: {self.academic} relaxed: {self.part_time} altruism_parameter: {self.altruism_parameter})"
 
     # Convolves the hours with the lab length signal and returns a new Schedule
     def to_slots(self, slot_length: int, impossibles: "Schedule"):
         academic = _to_slots_convolution_helper(self.academic & impossibles.academic, slot_length)
         part_time = _to_slots_convolution_helper(self.part_time & impossibles.part_time, slot_length)
 
-        return Schedule(academic, part_time, self.extra_time)
+        return Schedule(academic, part_time, self.altruism_parameter)
 
 # Type hint definition
 Schedules = Dict[str, Schedule]
@@ -76,9 +76,10 @@ class ScheduleFactory:
 
                 hours_part_time = hours_raw != Availability.EXTRA # Checks which slots are free and creates bool array
                 hours_academic = hours_raw != Availability.BUSY # Checks which slots aren't busy and creates bool array (handles extra time as free)
-                extra_time = np.count_nonzero(hours_raw == Availability.EXTRA)
+                altruism_parameter = np.count_nonzero(hours_raw == Availability.EXTRA)
+                altruism_parameter = (self.week.days_in_week * self.week.hours_in_day) - altruism_parameter #Makes it small for students with lot of part time
 
-                schedules[row[id_column]] = Schedule(hours_academic, hours_part_time, extra_time)
+                schedules[row[id_column]] = Schedule(hours_academic, hours_part_time, altruism_parameter)
 
             logging.info(f"Processing \"{filepath}\" is done.")
 

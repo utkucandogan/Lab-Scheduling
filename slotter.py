@@ -35,7 +35,7 @@ class Slotter:
                                                                 lowBound=0, upBound=1, cat=pulp.LpInteger)
         self.assistant_work_deviation = pulp.LpVariable("Assistant-Deviation", lowBound=0, upBound=self.max_assistant_work_deviation, cat=pulp.LpInteger)
 
-        self.student_part_time_decision = pulp.LpVariable.dicts("Student-Part-Time",self.student_list, lowBound=0, upBound=1, cat=pulp.LpInteger)
+        self.student_part_time_decision = pulp.LpVariable.dicts("Student-Part-Time",self.student_list, lowBound=0, cat=pulp.LpInteger)
         # Create the problem
         self.problem = pulp.LpProblem("Lab-Scheduling", pulp.LpMinimize)
 
@@ -74,7 +74,7 @@ class Slotter:
         #Make the part time variable 1 for the students with labs in such sessions
         for student in self.student_list:
             part_time_indices = np.nonzero(~self.student_available_slots[student].part_time.flatten())
-            self.problem +=pulp.lpSum(self.student_session_decision[session][student]for session in part_time_indices[0]) == self.student_part_time_decision[student]
+            self.problem +=pulp.lpSum(self.student_session_decision[session][student]for session in part_time_indices[0]) * self.student_available_slots[student].altruism_parameter == self.student_part_time_decision[student]
 
         # Make assistant busy sessions impossible for them to attend
         for assistant in self.assistant_list:
