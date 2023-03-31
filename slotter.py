@@ -126,6 +126,10 @@ class Slotter:
             assistants = [assistant for assistant in self.assistant_list if pulp.value(self.assistant_session_decision[session][assistant])]
             students = [student for student in self.student_list if pulp.value(self.student_session_decision[session][student])]
 
+            # Sort the lists alphabetically
+            assistants.sort()
+            students.sort()
+
             sessions[self.week.slot_index_to_string(session)] = (assistants, students)
 
         logging.debug(sessions)
