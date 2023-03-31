@@ -36,11 +36,13 @@ class Schedule:
         return f"(strict: {self.academic} relaxed: {self.part_time} altruism_parameter: {self.altruism_parameter})"
 
     # Convolves the hours with the lab length signal and returns a new Schedule
-    def to_slots(self, slot_length: int, impossibles: "Schedule"):
-        academic = _to_slots_convolution_helper(self.academic & impossibles.academic, slot_length)
-        part_time = _to_slots_convolution_helper(self.part_time & impossibles.part_time, slot_length)
+    def to_slots(self, week: Week, impossibles: "Schedule"):
+        academic = _to_slots_convolution_helper(self.academic & impossibles.academic, week.hours_in_slot)
+        part_time = _to_slots_convolution_helper(self.part_time & impossibles.part_time, week.hours_in_slot)
+        altruism_parameter = np.count_nonzero(~part_time) # Make unavaliable slots of the part time to 1 count non zero
+        altruism_parameter = (week.days_in_week * week.slots_in_day) - altruism_parameter #Makes it small for students with lot of part time
 
-        return Schedule(academic, part_time, self.altruism_parameter)
+        return Schedule(academic, part_time, altruism_parameter)
 
 # Type hint definition
 Schedules = Dict[str, Schedule]
@@ -76,8 +78,7 @@ class ScheduleFactory:
 
                 hours_part_time = hours_raw != Availability.EXTRA # Checks which slots are free and creates bool array
                 hours_academic = hours_raw != Availability.BUSY # Checks which slots aren't busy and creates bool array (handles extra time as free)
-                altruism_parameter = np.count_nonzero(hours_raw == Availability.EXTRA)
-                altruism_parameter = (self.week.days_in_week * self.week.hours_in_day) - altruism_parameter #Makes it small for students with lot of part time
+                altruism_parameter = 0
 
                 schedules[row[id_column]] = Schedule(hours_academic, hours_part_time, altruism_parameter)
 
@@ -88,4 +89,4 @@ class ScheduleFactory:
     # Converts slots from hour info to slot info
     def generate_slots(self, schedules: Schedules) -> Schedules:
         impossibles = schedules.pop(IMPOSSIBLES_ID, self.freeSchedule())
-        return {id: s.to_slots(self.week.hours_in_slot, impossibles) for id, s in schedules.items()}
+        return {id: s.to_slots(self.week, impossibles) for id, s in schedules.items()}

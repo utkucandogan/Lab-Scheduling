@@ -18,10 +18,11 @@ class Week:
     
     def get_overlapping_slot_pairs(self) -> List[Tuple[int, int]]:
         list = []
+        hours_in_slot = self.hours_in_slot + 1 # Disable consecutive lab sessions
         for day in range(self.days_in_week):
-            for slot in range(self.slots_in_day - self.hours_in_slot + 1):
+            for slot in range(self.slots_in_day - hours_in_slot + 1): # Each slot calculates index
                 slot_index = day * self.slots_in_day + slot
-                for hour in range(1, self.hours_in_slot):
+                for hour in range(1, hours_in_slot): # Look forward to slots for overlaps
                     list.append((slot_index, slot_index + hour))
         return list
     
