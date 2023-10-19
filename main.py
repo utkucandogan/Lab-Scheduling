@@ -12,15 +12,17 @@ student_path = "test-data/student_schedule.csv"
 assistant_path = "test-data/assistant_schedule.csv"
 days_in_week = 5
 hours_in_day = 9
+first_hour = (8, 40)
 hours_in_slot = 2
 session_no = 5
 lab_capacity = 16
-assistant_count_per_session = 2
+hours_between_sessions = 1
+assistant_count_per_session = 1
 max_assistant_work_deviation = 3
 assistant_work_deviation_constant = 1
 
 # Helper classes and factories
-week = Week(days_in_week, hours_in_day, hours_in_slot)
+week = Week(days_in_week, hours_in_day, hours_in_slot, first_hour)
 scheduler = ScheduleFactory(week)
 
 # Create the schedules
@@ -33,7 +35,8 @@ assistant_slots = scheduler.generate_slots(assistant_hours)
 logging.debug(student_slots)
 
 slotter = Slotter(week, "Lab-Schedule", lab_capacity, assistant_count_per_session,
-                  max_assistant_work_deviation, assistant_work_deviation_constant, student_slots, assistant_slots,session_no)
+                  max_assistant_work_deviation, assistant_work_deviation_constant, student_slots,
+                  assistant_slots, session_no, hours_between_sessions)
 
 slotter.assign_constraints()
 result = slotter.find_slots()

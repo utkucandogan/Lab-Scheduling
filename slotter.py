@@ -9,7 +9,8 @@ import logging
 class Slotter:
     def __init__(self, week: Week, name: str, lab_capacity: int,
                  assistant_count_per_session: int, max_assistant_work_deviation: int, assistant_work_deviation_constant: int,
-                 student_available_slots: Schedules, assistant_available_slots: Schedules,session_no: int):
+                 student_available_slots: Schedules, assistant_available_slots: Schedules,session_no: int, hours_between_sessions: int):
+        
         self.week = week
         self.name = name
         self.lab_capacity = lab_capacity
@@ -24,6 +25,7 @@ class Slotter:
         self.student_list = self.student_available_slots.keys()
         self.assistant_list = self.assistant_available_slots.keys()
 
+        self.hours_between_sessions = hours_between_sessions
         # Get the number of sessions
         self.sessions = range(self.week.slots_in_week)
 
@@ -61,9 +63,9 @@ class Slotter:
                     [self.student_session_decision[session][student] for student in self.student_list]
                 ) <= self.lab_capacity * self.session_decision[session]
             
-        # Make a constraint for the overlapping sessions so they are impossible
+        # Make a constraint for the overlapping sessions so they are impossible, also adds time interval between slots
         for overlapping_pair in self.week.get_overlapping_slot_pairs():
-            self.problem += (self.session_decision[overlapping_pair[0]] + self.session_decision[overlapping_pair[1]]) <= 1
+            self.problem += (self.session_decision[overlapping_pair[0]] + self.session_decision[overlapping_pair[1]]) <= self.hours_between_sessions
 
         # Make student busy sessions impossible for them to attend
         for student in self.student_list:
@@ -112,9 +114,11 @@ class Slotter:
             return None
 
         logging.info("Found the solution")
+        print("Students with part-time conflicts")
         for student in self.student_list:
             if(pulp.value(self.student_part_time_decision[student])):
                 print(student)
+        print("Found Lab session(s), student list and their responsible TA(s)")
 
         sessions = {}
         for session in self.sessions:
