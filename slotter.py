@@ -9,11 +9,12 @@ import logging
 class Slotter:
     def __init__(self, week: Week, name: str, lab_capacity: int,
                  assistant_count_per_session: int, max_assistant_work_deviation: int, assistant_work_deviation_constant: int,
-                 student_available_slots: Schedules, assistant_available_slots: Schedules):
+                 student_available_slots: Schedules, assistant_available_slots: Schedules,session_no: int, hours_between_sessions: int):
+        
         self.week = week
         self.name = name
         self.lab_capacity = lab_capacity
-
+        self.session_no = session_no
         self.assistant_count_per_session = assistant_count_per_session
         self.max_assistant_work_deviation = max_assistant_work_deviation
         self.assistant_work_deviation_constant = assistant_work_deviation_constant
@@ -24,6 +25,7 @@ class Slotter:
         self.student_list = self.student_available_slots.keys()
         self.assistant_list = self.assistant_available_slots.keys()
 
+        self.hours_between_sessions = hours_between_sessions
         # Get the number of sessions
         self.sessions = range(self.week.slots_in_week)
 
@@ -35,17 +37,22 @@ class Slotter:
                                                                 lowBound=0, upBound=1, cat=pulp.LpInteger)
         self.assistant_work_deviation = pulp.LpVariable("Assistant-Deviation", lowBound=0, upBound=self.max_assistant_work_deviation, cat=pulp.LpInteger)
 
+        self.student_part_time_decision = pulp.LpVariable.dicts("Student-Part-Time",self.student_list, lowBound=0, cat=pulp.LpInteger)
         # Create the problem
         self.problem = pulp.LpProblem("Lab-Scheduling", pulp.LpMinimize)
 
         # Set the solver for the problem
-        solver = pulp.PULP_CBC_CMD(msg = False) # Default solver with logging closed
+        solver = pulp.PULP_CBC_CMD(msg = True) # Default solver with logging closed
         self.problem.setSolver(solver)
 
         # Create the objective of minimizing lab session count and assistant workload
-        self.problem  += pulp.lpSum([self.session_decision[session] for session in self.sessions]) + self.assistant_work_deviation * self.assistant_work_deviation_constant
+        self.problem  += (self.assistant_work_deviation * self.assistant_work_deviation_constant 
+                          + pulp.lpSum([self.student_part_time_decision[student] for student in self.student_list]))
 
     def assign_constraints(self):
+
+        # Create the constraint for lab session number
+        self.problem  += pulp.lpSum([self.session_decision[session] for session in self.sessions]) ==self.session_no
         # Create the constraint of a student only attending 1 lab session
         for student in self.student_list:
             self.problem += pulp.lpSum([self.student_session_decision[session][student] for session in self.sessions]) == 1
@@ -56,21 +63,32 @@ class Slotter:
                     [self.student_session_decision[session][student] for student in self.student_list]
                 ) <= self.lab_capacity * self.session_decision[session]
             
-        # Make a constraint for the overlapping sessions so they are impossible
+        # Make a constraint for the overlapping sessions so they are impossible, also adds time interval between slots
         for overlapping_pair in self.week.get_overlapping_slot_pairs():
-            self.problem += (self.session_decision[overlapping_pair[0]] + self.session_decision[overlapping_pair[1]]) <= 1
+            self.problem += (self.session_decision[overlapping_pair[0]] + self.session_decision[overlapping_pair[1]]) <= self.hours_between_sessions
 
         # Make student busy sessions impossible for them to attend
         for student in self.student_list:
-            busy_indices = np.nonzero(~self.student_available_slots[student].strict.flatten())
+            busy_indices = np.nonzero(~self.student_available_slots[student].academic.flatten())
             for session in busy_indices[0]:
                 self.problem += self.student_session_decision[session][student] == 0
+        
+        #Make the part time variable 1 for the students with labs in such sessions
+        for student in self.student_list:
+            part_time_indices = np.nonzero(~self.student_available_slots[student].part_time.flatten())
+            self.problem +=pulp.lpSum(self.student_session_decision[session][student]for session in part_time_indices[0]) * self.student_available_slots[student].altruism_parameter == self.student_part_time_decision[student]
 
         # Make assistant busy sessions impossible for them to attend
         for assistant in self.assistant_list:
-            busy_indices = np.nonzero(~self.assistant_available_slots[assistant].strict.flatten())
+            busy_indices = np.nonzero(~self.assistant_available_slots[assistant].academic.flatten())
             for session in busy_indices[0]:
                 self.problem += self.assistant_session_decision[session][assistant] == 0
+
+        # Make assistant part_time sessions impossible for them to attend
+        for assistant in self.assistant_list:
+            busy_indices = np.nonzero(~self.assistant_available_slots[assistant].part_time.flatten())
+            for session in busy_indices[0]:
+                self.problem += self.assistant_session_decision[session][assistant] == 0        
 
         # Constraint for number of assistants per session
         for session in self.sessions:
@@ -96,6 +114,12 @@ class Slotter:
             return None
 
         logging.info("Found the solution")
+        print("Students with part-time conflicts")
+        for student in self.student_list:
+            if(pulp.value(self.student_part_time_decision[student])):
+                print(student)
+        print("Found Lab session(s), student list and their responsible TA(s)")
+
         sessions = {}
         for session in self.sessions:
             # Skip unselected sessions
@@ -105,6 +129,10 @@ class Slotter:
             # Add the selected assistants and students into a list
             assistants = [assistant for assistant in self.assistant_list if pulp.value(self.assistant_session_decision[session][assistant])]
             students = [student for student in self.student_list if pulp.value(self.student_session_decision[session][student])]
+
+            # Sort the lists alphabetically
+            assistants.sort()
+            students.sort()
 
             sessions[self.week.slot_index_to_string(session)] = (assistants, students)
 
