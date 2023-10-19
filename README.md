@@ -2,17 +2,17 @@
 
 This is a program to choose fitting laboratory slots for multiple students and TAs.
 
-Program takes student schedules (divided as academic, non-academic load and free time), TA schedules (busy, free time) as csv files and some parameters defined in `main.py` file.
+The program takes student schedules (divided as academic, non-academic load, and free time), and TA schedules (busy, free time) as CSV files and some parameters defined in the `main.py` file.
 
-# Requirements
+## Requirements
 - `numpy`
 - `pulp`
 
 ## Workload Files
 
-Workload files denote the workload and the free-time of both students and TAs in two csv files.
+Workload files denote the workload and the free time of both students and TAs in two CSV files.
 
-Each file contains a table with rows designate each person and columns designate the lecture hour availability for the person. Firts three columns represent name, surname and user ID respectively. After that each lecture hour will have their own column. First row is reserved for titles.
+Each file contains a table with rows that designate each person and columns that designate the lecture hour availability for the person. The first three columns represent name, surname, and user ID. After that, each lecture hour will have its column. The first row is reserved for titles.
 
 For each lecture hour, there can be three integer values.
 - Value `0` represents a free slot
@@ -22,14 +22,14 @@ If a cell is left empty, it is considered as value `0`.
 
 ## Program Parameters
 
-There are some parameters in `main.py` file which is required for automatic assignments. These needs to be modified for different courses.
+There are some parameters in the `main.py` file which is required for automatic assignments. These need to be modified for different courses.
 
-- `student_path`: Designates the workload csv file for the students
-- `assistant_path`: Designates the workload csv file for the TAs
-- `days_in_week`: Number of days available in a week, starts from Monday and is contigiuous (max `7`)
-- `hours_in_day`: Number of hours available in a day, starts from the `first_hour`
-    > Note: `days_in_week` and `hours_in_day` are used for calculating the number of columns in the csv files.
-- `first_hour`: Designates the first lecture hour as tuple (e.g. `(8, 40)`)
+- `student_path`: Designates the workload CSV file for the students
+- `assistant_path`: Designates the workload CSV file for the TAs
+- `days_in_week`: Number of days available in a week, starts from Monday and is contiguous (max `7`)
+- `hours_in_day`: Number of hours available in a day, starting from the `first_hour`
+    > Note: `days_in_week` and `hours_in_day` are used for calculating the number of columns in the CSV files.
+- `first_hour`: Designates the first lecture hour as a tuple (e.g., `(8, 40)`)
 - `hours_in_slot`: Number of hours a laboratory session takes
 - `session_no`: Number of laboratory sessions in a week
 - `lab_capacity`: Maximum number of students in a laboratory session
