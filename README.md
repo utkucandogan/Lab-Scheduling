@@ -1,4 +1,5 @@
 # Lab Scheduling
+! There is a known error of creating overlapping laboratory sessions, currently seems to only happen where there is just 1 TA.
 
 This is a program to choose fitting laboratory slots for multiple students and TAs.
 
