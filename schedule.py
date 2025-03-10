@@ -62,7 +62,10 @@ class ScheduleFactory:
     def read_schedules(self, filepath: str) -> Schedules:
         schedules = {}
         with open(filepath, "r", encoding="utf-8") as csv_file:
-            csv_reader = csv.reader(csv_file, delimiter=";")
+            content = csv_file.read()
+            delimeter_fixed = content.replace(";" , ",").replace("\t",",")  # Change all delimiters to be comma
+
+            csv_reader = csv.reader(delimeter_fixed.splitlines(), delimiter=",")
             headers = next(csv_reader, None)
             if headers is None:
                 raise RuntimeError(f"File named \"{filepath}\" is empty!")

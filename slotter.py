@@ -115,11 +115,14 @@ class Slotter:
 
         logging.info("Found the solution")
         print("Students with part-time conflicts")
+        parttime_conflict_count = 0
         for student in self.student_list:
             if(pulp.value(self.student_part_time_decision[student])):
                 print(student)
-        print("Found Lab session(s), student list and their responsible TA(s)")
+                parttime_conflict_count += 1
+        print(f"Total number of students with part-time conflicts: {parttime_conflict_count}")
 
+        print("Found Lab session(s), student list and their responsible TA(s)")
         sessions = {}
         for session in self.sessions:
             # Skip unselected sessions
