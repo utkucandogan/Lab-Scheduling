@@ -15,7 +15,7 @@ hours_in_day = 9
 first_hour = (8, 40)
 hours_in_slot = 2
 session_no = 5
-lab_capacity = 16
+lab_capacity = 15
 hours_between_sessions = 1
 assistant_count_per_session = 1
 max_assistant_work_deviation = 3
@@ -39,6 +39,11 @@ slotter = Slotter(week, "Lab-Schedule", lab_capacity, assistant_count_per_sessio
                   assistant_slots, session_no, hours_between_sessions)
 
 slotter.assign_constraints()
-result = slotter.find_slots()
-for session, list in result.items():
-    print(session, list)
+result, conflicts = slotter.find_slots()
+if result is not None:
+    for session, (assistants, student_list) in result.items():
+        print(f"🟢 {session} 🎓 {assistants}: 🤓 {student_list}")
+    print()
+    print(f"⚠️ Conflicts ({len(conflicts)}): {conflicts}")
+else:
+    print("❌ Couldn't find the solution! ❌")

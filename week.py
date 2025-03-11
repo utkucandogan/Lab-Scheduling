@@ -1,6 +1,5 @@
 from typing import List, Tuple
 
-concecutive_block = True
 class Week:
     """
         This class holds the information about the work week
@@ -17,16 +16,20 @@ class Week:
         self.slots_in_day = hours_in_day - hours_in_slot + 1
         self.slots_in_week = days_in_week * self.slots_in_day
     
-    def get_overlapping_slot_pairs(self) -> List[Tuple[int, int]]:
+    def get_overlapping_slot_pairs(self, hours_between_slots: int) -> List[Tuple[int, int]]:
         list = []
-        if (concecutive_block):
-            hours_in_slot = self.hours_in_slot + 1 # Disable consecutive lab sessions
-        else:
-            hours_in_slot = self.hours_in_slot 
+
+        # used for blocking overlapping slots.
+        # First parameter is the real overlap, second one is for creating breaks between slots
+        overlapping_hour_amount = self.hours_in_slot + hours_between_slots
+
         for day in range(self.days_in_week):
-            for slot in range(self.slots_in_day - hours_in_slot + 1): # Each slot calculates index
+            # Calculate the slot index for each day, last few are removed for preventing overflow
+            for slot in range(self.slots_in_day - self.hours_in_slot + 1): # Each slot calculates index
                 slot_index = day * self.slots_in_day + slot
-                for hour in range(1, hours_in_slot): # Look forward to slots for overlaps
+                for hour in range(1, overlapping_hour_amount): # Look forward to slots for overlaps
+                    if slot + hour >= self.slots_in_day:
+                        break
                     list.append((slot_index, slot_index + hour))
         return list
     

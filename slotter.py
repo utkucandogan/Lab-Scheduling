@@ -64,8 +64,9 @@ class Slotter:
                 ) <= self.lab_capacity * self.session_decision[session]
             
         # Make a constraint for the overlapping sessions so they are impossible, also adds time interval between slots
-        for overlapping_pair in self.week.get_overlapping_slot_pairs():
-            self.problem += (self.session_decision[overlapping_pair[0]] + self.session_decision[overlapping_pair[1]]) <= self.hours_between_sessions
+        # The total of 2 for overlapping pairs signify both sessions are chosen, which is not allowed
+        for overlapping_pair in self.week.get_overlapping_slot_pairs(self.hours_between_sessions):
+            self.problem += (self.session_decision[overlapping_pair[0]] + self.session_decision[overlapping_pair[1]]) <= 1
 
         # Make student busy sessions impossible for them to attend
         for student in self.student_list:
@@ -111,18 +112,11 @@ class Slotter:
         if status != 1:
             # Solution failed
             logging.error(f"Couldn't find the solution: {pulp.LpStatus[status]}")
-            return None
+            return None, None
 
         logging.info("Found the solution")
-        print("Students with part-time conflicts")
-        parttime_conflict_count = 0
-        for student in self.student_list:
-            if(pulp.value(self.student_part_time_decision[student])):
-                print(student)
-                parttime_conflict_count += 1
-        print(f"Total number of students with part-time conflicts: {parttime_conflict_count}")
 
-        print("Found Lab session(s), student list and their responsible TA(s)")
+        logging.debug("Found Lab session(s), student list and their responsible TA(s)")
         sessions = {}
         for session in self.sessions:
             # Skip unselected sessions
@@ -140,4 +134,14 @@ class Slotter:
             sessions[self.week.slot_index_to_string(session)] = (assistants, students)
 
         logging.debug(sessions)
-        return sessions
+
+        # Find the students with part-time conflicts
+        conflict_list = []
+        logging.debug("Students with part-time conflicts:")
+        for student in self.student_list:
+            if(pulp.value(self.student_part_time_decision[student])):
+                logging.debug(f"\t{student}")
+                conflict_list.append(student)
+        logging.debug(f"Total number of students with part-time conflicts: {len(conflict_list)}")
+
+        return sessions, conflict_list

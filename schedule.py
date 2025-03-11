@@ -6,12 +6,17 @@ import numpy as np
 
 from week import Week
 
+# This is a mock student ID for signifying impossible lab times
+# such as lecture hours (we cannot put lab sessions during lecture hours
+# even if a student says they are available)
 IMPOSSIBLES_ID = "IMPOSSIBLE"
 class Availability:
     FREE = "0"
     BUSY = "1"
     EXTRA = "2"
 
+# Calculates a convolution with an array (slot_filter) of length slot_length and consists of ones,
+# to find the slots that are available
 def _to_slots_convolution_helper(schedule: np.ndarray, slot_length: int):
     slot_filter = np.ones(slot_length, dtype=int)
     slots = np.apply_along_axis(lambda day: np.convolve(day, slot_filter, "valid"), axis=1, arr=schedule)
@@ -54,6 +59,7 @@ class ScheduleFactory:
     def __init__(self, week: Week):
         self.week = week
 
+    # Returns an empty (or completely free) schedule
     def freeSchedule(self) -> Schedule:
         free_schedule = np.ones((self.week.days_in_week, self.week.hours_in_day), dtype=bool)
         return Schedule(free_schedule, free_schedule, 0)
@@ -63,6 +69,8 @@ class ScheduleFactory:
         schedules = {}
         with open(filepath, "r", encoding="utf-8") as csv_file:
             content = csv_file.read()
+
+            # FIX: Auto detect the csv type and act accordingly
             delimeter_fixed = content.replace(";" , ",").replace("\t",",")  # Change all delimiters to be comma
 
             csv_reader = csv.reader(delimeter_fixed.splitlines(), delimiter=",")
@@ -91,5 +99,6 @@ class ScheduleFactory:
 
     # Converts slots from hour info to slot info
     def generate_slots(self, schedules: Schedules) -> Schedules:
+        # Get the impossible slots, get an empty schedule if not found
         impossibles = schedules.pop(IMPOSSIBLES_ID, self.freeSchedule())
         return {id: s.to_slots(self.week, impossibles) for id, s in schedules.items()}
